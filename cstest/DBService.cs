@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +15,21 @@ namespace cstest
         public bool Connection()
         {
             Console.WriteLine($"Подключаемся к '{Name}'");
-            return false;
+            SqlConnection cnn = new SqlConnection(ConnectionString);
+            try
+            {
+                cnn.Open();
+            }
+            catch (SqlException)
+            {
+                return false;
+            }
+            finally
+            {
+                cnn.Close();
+            }
+
+            return true;            
         }
     }
 }
