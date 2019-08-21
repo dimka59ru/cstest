@@ -43,8 +43,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DBService.cs" />
-    <Compile Include="IService.cs" />
+    <Compile Include="Services\DBService.cs" />
+    <Compile Include="Services\IService.cs" />
     <Compile Include="Option.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -53,7 +53,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-    <Compile Include="SiteService.cs" />
+    <Compile Include="Services\SiteService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
