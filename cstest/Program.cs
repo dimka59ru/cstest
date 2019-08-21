@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 
@@ -67,6 +68,16 @@ namespace cstest
             {
                 return $"{DateTime.Now}: Попытка подключения к '{service.Name}' неуспешна. " +
                     $"Строка подключения '{service.ConnectionString}' . Ошибка {ex.Message}";
+            }
+            catch (ArgumentException ex)
+            {
+                return $"{DateTime.Now}: Попытка подключения к '{service.Name}' неуспешна. " +
+                    $"Строка подключения '{service.ConnectionString}'. Ошибка: {ex.Message}";
+            }
+            catch (SqlException ex)
+            {
+                return $"{DateTime.Now}: Попытка подключения к '{service.Name}' неуспешна. " +
+                    $"Строка подключения '{service.ConnectionString}'. Ошибка: {ex.Message}";
             }
 
             if (resultConnections)

@@ -15,21 +15,10 @@ namespace cstest
         public bool Connection()
         {
             Console.WriteLine($"Подключаемся к '{Name}'");
-            SqlConnection cnn = new SqlConnection(ConnectionString);
-            try
-            {
-                cnn.Open();
-            }
-            catch (SqlException)
-            {
-                return false;
-            }
-            finally
-            {
-                cnn.Close();
-            }
-
-            return true;            
+            SqlConnection cnn = new SqlConnection(ConnectionString);            
+            cnn.Open();           
+            cnn.Close();            
+            return true;
         }
     }
 }
