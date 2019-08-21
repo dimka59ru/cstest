@@ -7,4 +7,4 @@
 - --dbstring - задание строки подключения к БД  
 
 ## Использование
-> --uri http://ya.ru --email name@domen.ru
+>> --uri http://ya.ru --email name@domen.ru
