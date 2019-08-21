@@ -1,91 +1,151 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace cstest
 {
     class Program
     {
+        static readonly string xmlFilePath = "result.xml";
         static int Main(string[] args)
         {
             if (args.Length == 0)
             {
                 Console.WriteLine("Запущено без параметров");
-                string uri = Properties.Settings.Default.Uri;
-                
 
-                string checkUriMessage = "";
-                try
+                List<IService> services = new List<IService>();
+
+                SiteService site = new SiteService();
+                site.Name = "Сайт ya.ru";
+                site.ConnectionString = Properties.Settings.Default.Uri;                
+                services.Add(site);
+
+                DBService dB = new DBService();
+                dB.Name = "БД MSSQL";
+                dB.ConnectionString = Properties.Settings.Default.DbConnectionString;
+                services.Add(dB);
+
+                List<string> messages = new List<string>();
+
+                foreach(var service in services)
                 {
-                    bool checkUriResult = UriAvailabilityCheck(uri);
-                    if (checkUriResult)
-                        checkUriMessage = $"{DateTime.Now}: Сайт {uri} доступен";
-                    else
-                        checkUriMessage = $"{DateTime.Now}: Сайт {uri} недоступен";
-                }
-                catch (UriFormatException ex)
-                {
-                    checkUriMessage = $"{DateTime.Now}: Проверка сайта {uri} неудалась. Ошибка {ex.Message}";
+                    string result = CheckConnection(service);
+                    messages.Add(result);
                 }
 
-                SendEmail(checkUriMessage);
-                SaveResultUriAvailabilityCheckToFile(checkUriMessage);
+                SaveMessagesToXmlFile(messages, xmlFilePath);
+                SendEmail(messages);
 
-                Console.ReadKey();
+                //Console.WriteLine("Нажмите любую клавишу для завершения");
+                //Console.ReadKey();
                 return 1;
             }
 
-            string[] args2 = { "--uri", "ya.ru"};
-
-
+           
             // Парсим командную строку
             List<Option> options = ParseArguments(args);             
 
             if (options.Any())
             {
                 ProcessOptions(options);
-            }
-            else
-            {
-                Console.WriteLine("Переданы неизвестные параметры");
             }            
 
+            Console.WriteLine("Нажмите любую клавишу для завершения");
             Console.ReadKey();
             return 0;
         }
 
-        private static void SaveResultUriAvailabilityCheckToFile(string message)
-        {            
-            using (StreamWriter file = File.CreateText("result.json"))
-            {                
-                var contentsToWriteToFile = JsonConvert.SerializeObject(message, Formatting.Indented);
-                file.WriteLine(contentsToWriteToFile);                
+        private static string CheckConnection(IService service)
+        {
+            bool resultConnections;
+            try
+            {
+                resultConnections = service.Connection();
+            }
+            catch (UriFormatException ex)
+            {
+                return $"{DateTime.Now}: Попытка подключения к '{service.Name}' неуспешна. " +
+                    $"Строка подключения '{service.ConnectionString}' . Ошибка {ex.Message}";
+            }
+
+            if (resultConnections)
+            {
+                return $"{DateTime.Now}: Подключение к '{service.Name}' успешно";
+            }
+            else
+            {
+                return $"{DateTime.Now}: Подключение к '{service.Name}' неудалось. " +
+                    $"Строка подключения '{service.ConnectionString}'";
             }            
         }
 
-        private static void SendEmail(string message)
+        private static void SaveMessagesToXmlFile(List<string> messages, string path)
         {
-            string email = Properties.Settings.Default.Email;
-            Console.WriteLine($"Email будет отправлен на {email}");
-            Console.WriteLine(message);
-        }
-        private static bool UriAvailabilityCheck(string uri)
-        {
-            bool result = false;
-            
-            WebRequest request = WebRequest.Create(uri);
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            if (response != null && response.StatusCode == HttpStatusCode.OK)
+            System.Xml.Serialization.XmlSerializer writer =
+                new System.Xml.Serialization.XmlSerializer(typeof(List<string>));
+
+            using (FileStream file = File.Create(path))
             {
-                result = true;
+                writer.Serialize(file, messages);
             }
-            
-            return result;
+        }
+
+        private static List<string> ReadMessagesFromXmlFile(string path)
+        {            
+            System.Xml.Serialization.XmlSerializer reader =
+                new System.Xml.Serialization.XmlSerializer(typeof(List<string>));
+
+            using (StreamReader file = new StreamReader(path))
+            {
+                List<string> messages = (List<string>)reader.Deserialize(file);
+                return messages;
+            }            
+        }
+
+        private static void SendEmail(List<string> messages)
+        {
+            if (messages.Any())
+            {
+                string email = Properties.Settings.Default.Email;
+                Console.WriteLine("======");
+                Console.WriteLine($"Email будет отправлен на {email}");
+
+                foreach (string message in messages)
+                {
+                    Console.WriteLine(message);
+                }
+
+                Console.WriteLine("======");
+            }
+        }
+
+        private static List<Option> ParseArguments(string[] args)
+        {
+            bool argWasRead = true;
+
+            List<Option> options = new List<Option>();
+            Option option = null;
+            foreach (var arg in args)
+            {
+                if (arg.StartsWith("--")) // Если аргумент начинается с --
+                {
+                    option = new Option();
+                    option.Name = arg;
+                    options.Add(option);
+
+                    argWasRead = false;
+                    continue;             // Переходим к следующему аргументу
+                }
+
+                if (!argWasRead)
+                {
+                    option.Value = arg;
+                    argWasRead = true;
+                }
+
+            }
+            return options;
         }
 
         private static void ProcessOptions(List<Option> options)
@@ -94,20 +154,15 @@ namespace cstest
             {
                 if (option.Name == "--print")
                 {
-                    Console.WriteLine("Печатаем результаты на экран");
-
-                    using (StreamReader sr = new StreamReader("result.json"))
-                    {
-                        string line = sr.ReadToEnd();
-                        var res = JsonConvert.DeserializeObject<string>(line);
-                        Console.WriteLine(res);
-                    }                    
+                    List<string> messages = ReadMessagesFromXmlFile(xmlFilePath);
+                    Console.WriteLine("Результаты последней проверки:");
+                    ShowMessagesOnScreen(messages);
                 }
 
                 if (option.Name == "--uri")
                 {
                     string uri = option.Value;
-                    SaveUrlToSettings(uri);
+                    SaveUriToSettings(uri);
                 }
 
                 if (option.Name == "--email")
@@ -116,17 +171,41 @@ namespace cstest
                     SaveEmailToSettings(email);
                 }
 
-                Properties.Settings.Default.Save();
-            }            
+                if (option.Name == "--dbstring")
+                {
+                    string dBString = option.Value;
+                    SaveDbStringToSettings(dBString);
+                }
+            }
+        }
 
+        private static void ShowMessagesOnScreen(List<string> messages)
+        {
+            foreach (var message in messages)
+                Console.WriteLine(message);
+        }
+
+        private static void SaveDbStringToSettings(string dBString)
+        {
+            if (IsdBStringValid(dBString))
+            {
+                Console.WriteLine("Сохарняем dBString в настройки");
+                Properties.Settings.Default.DbConnectionString = dBString;
+                Properties.Settings.Default.Save();
+            }
+            else
+            {
+                Console.WriteLine("dBString невалидный");
+            }
         }
 
         private static void SaveEmailToSettings(string email)
         {
             if (IsEmailValid(email))
             {
-                Console.WriteLine("Сохрняем email в настройки");
+                Console.WriteLine("Сохраняем email в настройки");
                 Properties.Settings.Default.Email = email;
+                Properties.Settings.Default.Save();
             }
             else
             {
@@ -134,12 +213,13 @@ namespace cstest
             }
         }
 
-        private static void SaveUrlToSettings(string uri)
+        private static void SaveUriToSettings(string uri)
         {
-            if (IsUrlValid(uri))
+            if (IsUriValid(uri))
             {
-                Console.WriteLine("Сохрняем uri в настройки");
+                Console.WriteLine("Сохраняем uri в настройки");
                 Properties.Settings.Default.Uri = uri;
+                Properties.Settings.Default.Save();
             }
             else
             {
@@ -147,7 +227,7 @@ namespace cstest
             }
         }
 
-        private static bool IsUrlValid(string uri)
+        private static bool IsUriValid(string uri)
         {
             if (!string.IsNullOrEmpty(uri) && Uri.IsWellFormedUriString(uri, UriKind.Absolute))
             {
@@ -163,32 +243,11 @@ namespace cstest
             return !string.IsNullOrEmpty(email);
         }
 
-        private static List<Option> ParseArguments(string[] args)
+        private static bool IsdBStringValid(string dBString)
         {
-            bool argWasRead = true;
-            
-            List<Option> options = new List<Option>();
-            Option option = null;
-            foreach (var arg in args)
-            {
-                if (arg.StartsWith("--")) // Если аргумент начинается с --
-                {
-                    option = new Option();
-                    option.Name = arg;
-                    options.Add(option);
-
-                    argWasRead = false;                    
-                    continue;             // Переходим к следующему аргументу
-                }
-
-                if (!argWasRead)
-                {
-                    option.Value = arg;                    
-                    argWasRead = true;                   
-                }
-                
-            }
-            return options;
+            return !string.IsNullOrEmpty(dBString);
         }
+
+        
     }
 }

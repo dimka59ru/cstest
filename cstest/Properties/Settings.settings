@@ -8,5 +8,8 @@
     <Setting Name="Email" Type="System.String" Scope="User">
       <Value Profile="(Default)">dimka59ru@gmail.ru</Value>
     </Setting>
+    <Setting Name="DbConnectionString" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Server=myServerAddress;Database=myDataBase;Trusted_Connection=True;</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
