@@ -45,7 +45,7 @@ namespace cstest
 
            
             // Парсим командную строку
-            List<Option> options = ParseArguments(args);             
+            List<OptionReaded> options = ParseArguments(args);             
 
             if (options.Any())
             {
@@ -131,17 +131,17 @@ namespace cstest
             }
         }
 
-        private static List<Option> ParseArguments(string[] args)
+        private static List<OptionReaded> ParseArguments(string[] args)
         {
             bool argWasRead = true;
 
-            List<Option> options = new List<Option>();
-            Option option = null;
+            List<OptionReaded> options = new List<OptionReaded>();
+            OptionReaded option = null;
             foreach (var arg in args)
             {
                 if (arg.StartsWith("--")) // Если аргумент начинается с --
                 {
-                    option = new Option();
+                    option = new OptionReaded();
                     option.Name = arg;
                     options.Add(option);
 
@@ -159,7 +159,7 @@ namespace cstest
             return options;
         }
 
-        private static void ProcessOptions(List<Option> options)
+        private static void ProcessOptions(List<OptionReaded> options)
         {
             foreach (var option in options)
             {

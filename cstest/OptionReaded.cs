@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace cstest
 {
-    public class Option
+    public class OptionReaded
     {
         public string Name { get; set; }
         public string Value { get; set; }
