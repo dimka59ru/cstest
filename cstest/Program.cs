@@ -1,4 +1,5 @@
-﻿using System;
+﻿using cstest.Options;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
@@ -8,53 +9,90 @@ namespace cstest
 {
     class Program
     {
-        static readonly string xmlFilePath = "result.xml";
+        public static readonly string xmlFilePath = "result.xml";
+        static readonly List<IOption> setOfOptions = new List<IOption>();
+        static readonly List<IService> services = new List<IService>();
+
         static int Main(string[] args)
         {
+            CreateSetOption(); // Создаем набор опций
+
             if (args.Length == 0)
             {
                 Console.WriteLine("Запущено без параметров");
 
-                List<IService> services = new List<IService>();
-
-                SiteService site = new SiteService();
-                site.Name = "Сайт ya.ru";
-                site.ConnectionString = Properties.Settings.Default.Uri;                
-                services.Add(site);
-
-                DBService dB = new DBService();
-                dB.Name = "БД MSSQL";
-                dB.ConnectionString = Properties.Settings.Default.DbConnectionString;
-                services.Add(dB);
-
-                List<string> messages = new List<string>();
-
-                foreach(var service in services)
-                {
-                    string result = CheckConnection(service);
-                    messages.Add(result);
-                }
-
+                // Создаем сервисы, которые будут проверены на доступность   
+                CreateServices(); 
+                // Проверяем сервисы
+                List<string> messages = CheckServices();
+                // Сохраняем результаты проверки в файл
                 SaveMessagesToXmlFile(messages, xmlFilePath);
+                // Отправляем результаты проверки на Email
                 SendEmail(messages);
 
-                //Console.WriteLine("Нажмите любую клавишу для завершения");
-                //Console.ReadKey();
                 return 1;
             }
 
-           
             // Парсим командную строку
-            List<OptionReaded> options = ParseArguments(args);             
+            List<OptionReaded> readedOptions = ParseArguments(args);
 
-            if (options.Any())
+            if (readedOptions.Any())
             {
-                ProcessOptions(options);
-            }            
+                // Обрабаотываем опции
+                ProcessOptions(readedOptions);
+            }
 
             Console.WriteLine("Нажмите любую клавишу для завершения");
             Console.ReadKey();
             return 0;
+        }
+
+        private static List<string> CheckServices()
+        {
+            List<string> messages = new List<string>();
+
+            foreach (var service in services)
+            {
+                string result = CheckConnection(service);
+                messages.Add(result);
+            }
+            return messages;
+        }
+
+        private static void CreateServices()
+        {
+            SiteService site = new SiteService
+            {
+                Name = $"Сайт {Properties.Settings.Default.Uri}",
+                ConnectionString = Properties.Settings.Default.Uri
+            };
+            services.Add(site);
+
+            DBService dB = new DBService
+            {
+                Name = "БД MSSQL",
+                ConnectionString = Properties.Settings.Default.DbConnectionString
+            };
+            services.Add(dB);
+        }
+
+        private static void CreateSetOption()
+        {
+            SaveEmailOption emailOption = new SaveEmailOption();
+            emailOption.Key = "--email";
+            setOfOptions.Add(emailOption);
+
+            SaveDbStringOption dbStringOption = new SaveDbStringOption();
+            dbStringOption.Key = "--dbstring";
+            setOfOptions.Add(dbStringOption);
+
+            SaveUriOption uriOption = new SaveUriOption();
+            uriOption.Key = "--uri";
+            setOfOptions.Add(uriOption);
+
+            ShowLastResultOption lastResultOption = new ShowLastResultOption();
+            lastResultOption.Key = "--print";
+            setOfOptions.Add(lastResultOption);
         }
 
         private static string CheckConnection(IService service)
@@ -102,18 +140,6 @@ namespace cstest
             }
         }
 
-        private static List<string> ReadMessagesFromXmlFile(string path)
-        {            
-            System.Xml.Serialization.XmlSerializer reader =
-                new System.Xml.Serialization.XmlSerializer(typeof(List<string>));
-
-            using (StreamReader file = new StreamReader(path))
-            {
-                List<string> messages = (List<string>)reader.Deserialize(file);
-                return messages;
-            }            
-        }
-
         private static void SendEmail(List<string> messages)
         {
             if (messages.Any())
@@ -142,7 +168,7 @@ namespace cstest
                 if (arg.StartsWith("--")) // Если аргумент начинается с --
                 {
                     option = new OptionReaded();
-                    option.Name = arg;
+                    option.Key = arg;
                     options.Add(option);
 
                     argWasRead = false;
@@ -159,106 +185,22 @@ namespace cstest
             return options;
         }
 
-        private static void ProcessOptions(List<OptionReaded> options)
+        private static void ProcessOptions(List<OptionReaded> ReadedOptions)
         {
-            foreach (var option in options)
+            foreach (var readedOption in ReadedOptions)
             {
-                if (option.Name == "--print")
+                // Проверяем, есть ли введеная опция, среди набора опций
+                var opt = setOfOptions.FirstOrDefault(x => x.Key == readedOption.Key);
+                if (opt != null)
                 {
-                    List<string> messages = ReadMessagesFromXmlFile(xmlFilePath);
-                    Console.WriteLine("Результаты последней проверки:");
-                    ShowMessagesOnScreen(messages);
+                    opt.Value = readedOption.Value; // Задаем значение опции
+                    opt.Action();                   // Выполняем действие
                 }
-
-                if (option.Name == "--uri")
+                else
                 {
-                    string uri = option.Value;
-                    SaveUriToSettings(uri);
-                }
-
-                if (option.Name == "--email")
-                {
-                    string email = option.Value;
-                    SaveEmailToSettings(email);
-                }
-
-                if (option.Name == "--dbstring")
-                {
-                    string dBString = option.Value;
-                    SaveDbStringToSettings(dBString);
-                }
+                    Console.WriteLine($"Опция {readedOption.Key} не найдена");
+                }                
             }
-        }
-
-        private static void ShowMessagesOnScreen(List<string> messages)
-        {
-            foreach (var message in messages)
-                Console.WriteLine(message);
-        }
-
-        private static void SaveDbStringToSettings(string dBString)
-        {
-            if (IsdBStringValid(dBString))
-            {
-                Console.WriteLine("Сохарняем dBString в настройки");
-                Properties.Settings.Default.DbConnectionString = dBString;
-                Properties.Settings.Default.Save();
-            }
-            else
-            {
-                Console.WriteLine("dBString невалидный");
-            }
-        }
-
-        private static void SaveEmailToSettings(string email)
-        {
-            if (IsEmailValid(email))
-            {
-                Console.WriteLine("Сохраняем email в настройки");
-                Properties.Settings.Default.Email = email;
-                Properties.Settings.Default.Save();
-            }
-            else
-            {
-                Console.WriteLine("Email невалидный");
-            }
-        }
-
-        private static void SaveUriToSettings(string uri)
-        {
-            if (IsUriValid(uri))
-            {
-                Console.WriteLine("Сохраняем uri в настройки");
-                Properties.Settings.Default.Uri = uri;
-                Properties.Settings.Default.Save();
-            }
-            else
-            {
-                Console.WriteLine("Uri невалидный. Пример: http://ya.ru");
-            }
-        }
-
-        private static bool IsUriValid(string uri)
-        {
-            if (!string.IsNullOrEmpty(uri) && Uri.IsWellFormedUriString(uri, UriKind.Absolute))
-            {
-                return true;
-            }
-            return false;
-        }
-
-        private static bool IsEmailValid(string email)
-        {
-            // TODO добавит проверку email на валидность
-
-            return !string.IsNullOrEmpty(email);
-        }
-
-        private static bool IsdBStringValid(string dBString)
-        {
-            return !string.IsNullOrEmpty(dBString);
-        }
-
-        
+        }        
     }
 }

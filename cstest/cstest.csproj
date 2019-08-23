@@ -43,6 +43,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Options\IOption.cs" />
+    <Compile Include="Options\SaveDbStringOption.cs" />
+    <Compile Include="Options\SaveEmailOption.cs" />
+    <Compile Include="Options\SaveUriOption.cs" />
+    <Compile Include="Options\ShowLastResultOption.cs" />
     <Compile Include="Services\DBService.cs" />
     <Compile Include="Services\IService.cs" />
     <Compile Include="OptionReaded.cs" />
