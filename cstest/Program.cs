@@ -41,6 +41,10 @@ namespace cstest
                 // Обрабаотываем опции
                 ProcessOptions(readedOptions);
             }
+            else
+            {
+                Console.WriteLine("Опции не найдены");
+            }
 
             Console.WriteLine("Нажмите любую клавишу для завершения");
             Console.ReadKey();
